@@ -23,7 +23,7 @@ DEVICE      = torch.device('cpu')
 SEQ_LEN     = 8
 CARDINALITY = 4
 
-# ── Model architecture ────────────────────────────────────────────────────────
+# ── Model architecture ───────────────────────────────────────────────────────
 
 class ResNeXtBlock(nn.Module):
     def __init__(self, in_dim, out_dim, cardinality=CARDINALITY):

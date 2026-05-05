@@ -229,7 +229,7 @@
             bar.style.width = (data.risk_score * 100) + '%';
             bar.style.backgroundColor = data.decision === 'FRAUD' ? 'var(--red)' : 'var(--green)';
 
-            // Risk Flags
+            // Risk Flag
             const flagList = document.getElementById('flag-list');
             flagList.innerHTML = '';
             if(data.risk_flags.length > 0) {

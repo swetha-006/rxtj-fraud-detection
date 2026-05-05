@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# --- 1. ARCHITECTURE ---
+# --- 1. ARCHITECTURE --
 class ResNeXtBlock(nn.Module):
     def __init__(self, in_dim, out_dim, cardinality=4):
         super().__init__()

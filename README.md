@@ -1,10 +1,20 @@
 # 🛡️ ML Transaction Risk Scoring for Payment Fraud Detection
 
-**RXT-J+ Model** — ResNeXt-Embedded GRU with Jaya Optimization for Real-Time Fraud Detection
+> **RXT-J+ Model** — ResNeXt-Embedded GRU with Jaya Optimization for Real-Time Fraud Detection
 
-📌 Overview
+![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-009688?logo=fastapi)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.2.2-EE4C2C?logo=pytorch)
+![License](https://img.shields.io/badge/License-MIT-green)
+![AUC](https://img.shields.io/badge/AUC-96.24%25-brightgreen)
+![Accuracy](https://img.shields.io/badge/Accuracy-98%25-brightgreen)
 
-This project presents an **end-to-end Machine Learning transaction risk scoring system** designed to detect payment fraud in real time. Built as a Capstone Project by Team 13, Department of CSE (CYS), SKCT, the system leverages a novel deep learning architecture called **RXT-J+** — combining **ResNeXt feature extraction**, a **Self-Attention GRU classifier**, and **Jaya-optimized ensemble weighting** — to achieve sub-millisecond fraud detection with high accuracy and minimal false positives.
+---
+
+## 📌 Overview
+
+This project presents an **end-to-end Machine Learning transaction risk scoring system** designed to detect payment fraud in real time. Built as a Capstone Project, Department of CSE (CYS), SKCT, the system leverages a novel deep learning architecture called **RXT-J+** — combining **ResNeXt feature extraction**, a **Self-Attention GRU classifier**, and **Jaya-optimized ensemble weighting** — to achieve sub-millisecond fraud detection with high accuracy and minimal false positives.
+
 The system is deployed as a **FastAPI REST backend** with an interactive **HTML dashboard frontend**, supporting live transaction scoring and behavioral anomaly detection.
 
 ---
@@ -71,8 +81,9 @@ The model also incorporates:
 
 ```
 rxtj_project/
-├── app.py                        # FastAPI main deployment (full RXT-J+ pipeline)
-├── backend.py                    # Lightweight FastAPI backend with SQLite history
+├── app.py                        # FastAPI deployment (full RXT-J+ pipeline + history + Kafka)
+├── preprocessing.py              # Shared imputer/scaler transforms (Phase 1 & Phase 2)
+├── profile_consumer.py           # Phase 2 Kafka consumer for profile updates
 ├── index.html                    # Main frontend dashboard
 ├── rxtj_app.html                 # RXT-J transaction scoring UI
 ├── fraudshield_app.html          # FraudShield merchant risk UI
@@ -149,14 +160,15 @@ pip install -r requirements.txt
 ### 4. Run the Backend API
 
 ```bash
-# Full RXT-J+ pipeline (recommended)
+# Full RXT-J+ pipeline
 python -m uvicorn app:app --reload --port 8000
-
-# OR lightweight backend
-python -m uvicorn backend:app --reload --port 8000
 ```
 
 The API will be live at: `http://localhost:8000`
+
+To enable Phase 2 Kafka publishing, set `KAFKA_BOOTSTRAP_SERVERS` before starting the server
+(e.g. `set KAFKA_BOOTSTRAP_SERVERS=localhost:9092` on Windows). Then run
+`python profile_consumer.py` in a separate terminal to consume profile-update events.
 
 ### 5. Open the Frontend
 
@@ -166,30 +178,29 @@ Open `index.html` in your browser (or use Live Server in VS Code). The dashboard
 
 ## 🔌 API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | API status and model info |
-| `POST` | `/predict` | Score a single transaction |
-| `POST` | `/predict_batch` | Score a batch of transactions |
-| `GET` | `/demo` | Returns pre-loaded demo samples |
-| `GET` | `/stats` | System performance stats |
-| `GET` | `/history` | Transaction prediction history (SQLite) |
+| Method | Endpoint        | Description |
+|--------|-----------------|-------------|
+| `GET`  | `/`             | API status and model info |
+| `GET`  | `/health`       | Liveness probe |
+| `GET`  | `/model/info`   | Model weights, threshold, performance & latency stats |
+| `GET`  | `/demo-samples` | Pre-loaded demo transactions for the web UI |
+| `POST` | `/score`        | Score one raw-feature vector (full pipeline). Publishes a Kafka profile-update event. |
+| `POST` | `/score/direct` | Score a 50-dim EARN+ vector (post-IPCA). Used by the web demo. |
+| `POST` | `/score/batch`  | Score up to 1000 raw-feature vectors at once. |
+| `POST` | `/score/form`   | Score a minimal form payload (amount, is_foreign, customer_age). Persists to SQLite. |
+| `GET`  | `/history`      | Recent scored transactions from the local SQLite store. |
 
-### Sample Request — `/predict`
+### Sample Request — `/score/form`
 
 ```json
-POST /predict
+POST /score/form
 Content-Type: application/json
 
 {
-  "TransactionAmt": 150.0,
-  "card1": 12345,
-  "card2": 321.0,
-  "addr1": 315.0,
-  "addr2": 87.0,
-  "dist1": 19.0,
-  "P_emaildomain": 0,
-  "R_emaildomain": 0
+  "transaction_id": "TXN-20260305-001",
+  "amount": 150.0,
+  "is_foreign": false,
+  "customer_age": 32
 }
 ```
 
@@ -199,11 +210,9 @@ Content-Type: application/json
 {
   "transaction_id": "TXN-20260305-001",
   "risk_score": 0.823,
-  "label": "FRAUD",
-  "model_prob": 0.791,
-  "ifm_score": 0.612,
-  "latency_ms": 0.019,
-  "attention_weights": [0.12, 0.18, ...]
+  "decision": "FRAUD",
+  "confidence": 0.823,
+  "latency_ms": 0.019
 }
 ```
 
